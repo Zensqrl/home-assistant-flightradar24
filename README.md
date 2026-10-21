@@ -116,8 +116,8 @@ The default data is preset already
 
 > **⚠️ <a id="notes">IMPORTANT NOTE</a> ⚠️**  
 > 1. After integration installation or reload and after every HA restart Current in area sensor may stay at 0 for some minutes or show less than real amount of flights in your area for a while. It is because of downloading information from FR24. Downloading information for a flight takes time. The more flights in your area the more time it takes to load all of them
-> 2. Log messages such as `FlightRadar24: got an empty session (bot mitigation), recreating (1/5)` or `HTTP 429` are **expected** and do **not** indicate a broken integration. FlightRadar24 actively rate-limits and blocks automated requests; the integration detects this and retries (for example by recreating the session). Occasional appearances of these messages in the Home Assistant log are normal
-> 3. Decreasing scan interval may lead to more of these responses from FR24
+> 2. Log messages such as `FlightRadar24: got an empty session (bot mitigation)...` or `rate limited (HTTP 429)... pausing` are **expected** and do **not** indicate a broken integration. FlightRadar24 actively rate-limits automated requests; on HTTP 429 the integration **pauses** that endpoint with exponential back-off (up to 15 minutes) and resumes when FR24 lifts the limit. Occasional appearances of these messages in the Home Assistant log are normal
+> 3. Prefer a scan interval of **20–60 seconds**. Values near the 10-second minimum, and multiple config entries all polling quickly on the same IP, make rate limits more likely
 > 4. Increasing the radius means more flights will be in your area, which may also trigger more rate-limiting or bot-mitigation responses from FR24
 > 5. If your airport sensors stay Unavailable - check if you [track the airport](#lovelace-airport)
 
@@ -347,7 +347,7 @@ template:
 ```
 
 ### <a id="flightradar24-card">Flightradar24 Map Card</a>
-Built-in Lovelace card with an OpenStreetMap of your monitored area, aircraft markers, optional flight tracks, an optional marker at the centre of the area, and a list of flights currently in the area.
+Built-in Lovelace card with a map of your monitored area, aircraft markers (airplane or helicopter from `aircraft_category`), optional flight tracks, an optional monitored-area outline, an optional marker at the centre of the area, and a list of flights currently in the area. Basemap styles (OpenStreetMap, satellite, topographic) are selectable without an API key.
 
 > **Note:** The map card currently supports only the **Current in area** sensor (`sensor.flightradar24_current_in_area`). Other Flightradar24 sensors — tracked flights, entered/exited, airport boards, and so on — are not supported yet. The card needs the `bounds` and `flights` attributes, which only the in-area sensor provides.
 
@@ -373,6 +373,7 @@ The card is registered automatically when the integration is loaded — no manua
 type: custom:flightradar24-card
 entity: sensor.flightradar24_current_in_area
 title: Flights Nearby
+map_style: osm
 show_header: true
 show_flights: true
 show_tracks: true
@@ -384,27 +385,52 @@ show_tracks: true
 | ------ | ---- | ------- | ----------- |
 | `entity` | string | — | **Required.** Use the **Current in area** sensor only (typically `sensor.flightradar24_current_in_area`) |
 | `title` | string | — | Optional card title |
+| `map_style` | string | `osm` | Basemap style: `osm` (OpenStreetMap), `satellite` (Esri World Imagery), `topo` (OpenTopoMap). No API key required |
 | `show_header` | boolean | `true` | Show the title/count header above the map. Set to `false` together with `show_flights: false` for a map-only card |
 | `show_flights` | boolean | `true` | Show the flights list under the map |
 | `show_tracks` | boolean | `true` | Draw flight tracks on the map from each flight's `coordinates` history |
+| `show_area` | boolean | `true` | Show the monitored area outline and tint. Hiding it preserves map bounds, zoom and the area centre marker |
 | `show_area_center` | boolean | `true` | Mark the centre of the observed area — the latitude/longitude this device is configured with (not `zone.home`) |
 | `interactive_map` | boolean | `false` | Enable mouse/touch dragging and two-finger pinch zoom. Show fixed Close details and Reset view controls; preserve manual navigation when details close or flights update |
 | `zoom` | number | — | Fixed map zoom level (1–19). When omitted, the map auto-fits the monitored area. Useful for static dashboards and e-ink displays where manual zoom is not available |
 | `icon_size` | number | `28` | Aircraft marker size in pixels (12–64). Increase for wall displays or e-ink dashboards where planes are hard to see at the default size |
+| `altitude_unit` | string | `both` | Altitude display: `both` (meters and feet), `m`, or `ft` |
+| `distance_unit` | string | `m` | Current and closest distance display: `m`, `km`, `mi` (miles), or `nmi` (nautical miles) |
+| `speed_unit` | string | `both` | Ground speed display: `both` (km/h and knots), `km/h`, `mph`, or `kts` |
+
+Choose altitude, distance, and speed units independently in the card editor.
+For example, use feet for altitude, kilometers for distance, and knots for speed:
+
+```yaml
+type: custom:flightradar24-card
+entity: sensor.flightradar24_current_in_area
+altitude_unit: ft
+distance_unit: km
+speed_unit: kts
+```
+
+These options apply to the flight list and map popups. They only change the
+card's display; flight attributes, altitude filters, and automation inputs keep
+their existing units. Existing cards retain the same display when the options
+are omitted. Distances in kilometers, miles, and nautical miles use two decimal
+places; meters, altitude, and speed use whole numbers. Common aliases such as
+`feet`, `kilometers`, `kmh`, and `knots` are accepted and normalized to the
+canonical values above.
 
 For a touchscreen, enable **Enable map dragging and pinch zoom** in the editor,
 or add `interactive_map: true` to the card configuration. Drag with one finger
 to pan; pinch with two fingers to zoom. Mouse dragging and the existing +/−
-and wheel zoom controls also work. Tap a plane for details. **Close details**
-stays at the map's upper right even if the aircraft popup's own X is offscreen;
+and wheel zoom controls also work. Tap a plane for details without the map
+auto-panning away from your chosen view. **Close details** stays at the map's
+upper right even if the aircraft popup's own X is offscreen after you pan;
 **Reset view** closes details and returns to the configured monitored area and
 initial zoom. Plane selection does not scroll the page down to its flight row.
 
 Interactive mode permits navigation outside the outlined monitored area, but
-does not increase flight coverage or make additional API requests. Closing
-details and normal flight updates preserve the current view. Changing the
-monitored bounds or card zoom refits the map. Without this option, the existing
-static map and popup-close recentering behavior are unchanged.
+does not increase flight coverage or make additional API requests. Opening or
+closing details and normal flight updates preserve the current view. Changing
+the monitored bounds or card zoom refits the map. Without this option, the
+existing static map and popup-close recentering behavior are unchanged.
 
 ### <a id="lovelace">Lovelace Card</a>
 You can add flight table to your [Home Assistant dashboard](https://www.home-assistant.io/dashboards/)
