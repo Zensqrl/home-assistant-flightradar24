@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Added
+
+- Map card option `show_area` to hide the monitored area outline and tint; default remains visible ([#336](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/336), [#339](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/339))
+- Map card options `altitude_unit`, `distance_unit`, and `speed_unit` for independent display units in the flight list and popups ([#326](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/326), [#337](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/337))
+- Map card shows a helicopter icon in the flight list and on the map when `aircraft_category` is `Helicopter` ([#340](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/340))
+- Local brand assets under `custom_components/flightradar24/brand/` for Home Assistant 2026.3+ ([#344](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/344))
+
+### Fixed
+
+- Map card calls `invalidateSize` when its container resizes (e.g. sections `column_span`), so tiles fill the full width without needing a manual zoom ([#327](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/327), [#334](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/334))
+- HTTP 429 storms after v2.1.2: disable FlightRadarAPI empty-feed rerolls (`FEED_EMPTY_RETRIES=0`), do not retry 429, and pause the affected endpoint with exponential back-off up to 15 minutes (honours `Retry-After` when present) ([#254](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/254), [#330](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/330), [#332](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/332), [#333](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/333), [#341](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/341))
+- Tracked flights keep updating when the area feed fails or is rate-limited ([#341](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/341))
+- Setup continues with an unverified session on canary HTTP 429 instead of leaving every entity unavailable; login 429 becomes `ConfigEntryNotReady` so Home Assistant retries, while 401/403 stay auth failures ([#301](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/301), [#328](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/328))
+- Fetch `get_flight_details` for every flight that needs it until the details endpoint is paused (429 or other failure; pause lasts across cycles until cooldown expires); new flights without successful details are not published as feed-only stubs; share request spacing process-wide so multiple entries are less likely to re-trigger IP limits ([#341](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/341))
+
+## [2.3.0] - 2026-10-06
+
+### Added
+
+- Map card option `map_style` to switch basemap without an API key: `osm` (default), `satellite` (Esri), `topo` (OpenTopoMap)
+- Map card option `interactive_map` for opt-in mouse/touch dragging and pinch zoom, with fixed Close details and Reset view controls; default static dashboards are unchanged ([#324](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/324))
+
+### Fixed
+
+- Adding or removing a tracked flight updates `Additional tracked` and clears the Add/Remove text inputs immediately, instead of waiting for the next poll ([#318](https://github.com/AlexandrErohin/home-assistant-flightradar24/issues/318), [#323](https://github.com/AlexandrErohin/home-assistant-flightradar24/pull/323))
+
 ## [2.2.2] - 2026-10-02
 
 ### Fixed
